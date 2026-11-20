@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -35,7 +35,7 @@ class SolarPipeline:
         self._record("site_registered", config.site_id, f"capacity_kw={config.capacity_kw}")
 
     def _record(self, action: str, reference: str, detail: str) -> None:
-        self.audit.append(AuditEntry(datetime.now(timezone.utc), action, reference, detail))
+        self.audit.append(AuditEntry(datetime.now(UTC), action, reference, detail))
 
     def ingest(self, records: list[dict[str, Any]]) -> IngestSummary:
         summary = IngestSummary(received=len(records))
@@ -68,9 +68,9 @@ class SolarPipeline:
         return summary
 
     def _validate(self, reading: Reading) -> None:
-        if reading.irradiance > Decimal("1500"):
+        if reading.irradiance > Decimal(1500):
             raise ValueError("irradiance exceeds physical maximum")
-        if reading.temperature_c < Decimal("-50") or reading.temperature_c > Decimal("90"):
+        if reading.temperature_c < Decimal(-50) or reading.temperature_c > Decimal(90):
             raise ValueError("temperature outside plausible range")
         config = self.sites.get(reading.site_id)
         if config and reading.ac_kw > config.capacity_kw * Decimal("1.2"):
@@ -82,31 +82,31 @@ class SolarPipeline:
         config = self.sites.get(site_id)
         if config is None:
             raise ValueError(f"site is not registered: {site_id}")
-        start = datetime.combine(day, time.min, tzinfo=timezone.utc)
+        start = datetime.combine(day, time.min, tzinfo=UTC)
         end = start + timedelta(days=1)
         rows = sorted(
             (r for (s, _, at), r in self.readings.items() if s == site_id and start <= at < end),
             key=lambda r: r.at,
         )
         if not rows:
-            return SiteAnalysis(site_id, day, 0, Decimal("0"), Decimal("0"), Decimal("0"), 0, 0, ())
+            return SiteAnalysis(site_id, day, 0, Decimal(0), Decimal(0), Decimal(0), 0, 0, ())
 
-        actual = sum((r.energy_kwh for r in rows), Decimal("0"))
-        interval_hours = Decimal(config.interval_minutes) / Decimal("60")
-        expected = Decimal("0")
+        actual = sum((r.energy_kwh for r in rows), Decimal(0))
+        interval_hours = Decimal(config.interval_minutes) / Decimal(60)
+        expected = Decimal(0)
         for r in rows:
             if r.irradiance > 0:
-                expected += config.capacity_kw * (r.irradiance / Decimal("1000")) * interval_hours
+                expected += config.capacity_kw * (r.irradiance / Decimal(1000)) * interval_hours
             else:
                 expected += config.capacity_kw * interval_hours
-        ratio = (actual / expected).quantize(Decimal("0.001")) if expected > 0 else Decimal("0")
+        ratio = (actual / expected).quantize(Decimal("0.001")) if expected > 0 else Decimal(0)
 
         expected_slots = int((rows[-1].at - rows[0].at).total_seconds() // (config.interval_minutes * 60)) + 1
         gap_count = max(0, expected_slots - len(rows))
         underperforming = sum(
             1
             for r in rows
-            if r.irradiance >= Decimal("500")
+            if r.irradiance >= Decimal(500)
             and r.ac_kw < config.capacity_kw * Decimal("0.5")
         )
         present = {r.inverter_id for r in rows}
@@ -130,14 +130,14 @@ class SolarPipeline:
         period_end: date,
         billed_kwh: Decimal | str,
     ) -> list[BillingDiscrepancy]:
-        start = datetime.combine(period_start, time.min, tzinfo=timezone.utc)
-        end = datetime.combine(period_end + timedelta(days=1), time.min, tzinfo=timezone.utc)
+        start = datetime.combine(period_start, time.min, tzinfo=UTC)
+        end = datetime.combine(period_end + timedelta(days=1), time.min, tzinfo=UTC)
         rows = [r for (s, _, at), r in self.readings.items() if s == site_id and start <= at < end]
         if not rows:
             return [BillingDiscrepancy("missing_telemetry", site_id, "no readings in billing period", "0", str(billed_kwh))]
-        actual = sum((r.energy_kwh for r in rows), Decimal("0"))
+        actual = sum((r.energy_kwh for r in rows), Decimal(0))
         billed = Decimal(str(billed_kwh))
-        tolerance = max(Decimal("1"), abs(billed) * Decimal("0.02"))
+        tolerance = max(Decimal(1), abs(billed) * Decimal("0.02"))
         if abs(actual - billed) > tolerance:
             return [
                 BillingDiscrepancy(

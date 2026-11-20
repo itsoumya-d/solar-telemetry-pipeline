@@ -1,4 +1,4 @@
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
 from solarpipe import AnomalyDetector, Reading, SiteConfig, SolarPipeline
@@ -6,7 +6,7 @@ from solarpipe import AnomalyDetector, Reading, SiteConfig, SolarPipeline
 
 def test_thermal_throttling_detection():
     detector = AnomalyDetector(thermal_threshold_c=Decimal("65.0"))
-    now = datetime(2026, 11, 20, 12, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 11, 20, 12, 0, tzinfo=UTC)
 
     normal_reading = Reading(
         site_id="site-1",
@@ -42,7 +42,7 @@ def test_thermal_throttling_detection():
 
 def test_zero_generation_under_peak_sun():
     detector = AnomalyDetector(peak_sun_min_irradiance=Decimal("500.0"))
-    now = datetime(2026, 11, 20, 13, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 11, 20, 13, 0, tzinfo=UTC)
 
     tripped_reading = Reading(
         site_id="site-1",
@@ -64,7 +64,7 @@ def test_zero_generation_under_peak_sun():
 
 def test_peer_inverter_drift_detection():
     detector = AnomalyDetector(drift_tolerance=Decimal("0.25"))
-    now = datetime(2026, 11, 20, 11, 30, tzinfo=timezone.utc)
+    now = datetime(2026, 11, 20, 11, 30, tzinfo=UTC)
 
     # 3 inverters at same site: inv-1 and inv-2 healthy (~0.95 ratio), inv-3 degraded (0.50 ratio)
     readings = [
@@ -121,7 +121,7 @@ def test_pipeline_anomaly_integration():
         )
     )
 
-    now = datetime(2026, 11, 20, 14, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 11, 20, 14, 0, tzinfo=UTC)
     raw_telemetry = [
         {
             "site_id": "site-nz-1",

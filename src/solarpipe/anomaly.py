@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import hashlib
 from collections import defaultdict
+from collections.abc import Sequence
 from datetime import datetime
 from decimal import Decimal
-from typing import Sequence
 
 from .models import AnomalyEvent, Reading
 
@@ -25,10 +25,8 @@ class AnomalyDetector:
         return hashlib.sha256(raw.encode()).hexdigest()[:16]
 
     def check_thermal_throttling(self, reading: Reading) -> AnomalyEvent | None:
-        if reading.temperature_c >= self.thermal_threshold_c:
-            # If inverter is hot and producing significantly below DC input capacity
-            if reading.dc_kw > Decimal("1.0") and reading.ac_kw < (reading.dc_kw * Decimal("0.80")):
-                return AnomalyEvent(
+        if reading.temperature_c >= self.thermal_threshold_c and reading.dc_kw > Decimal("1.0") and reading.ac_kw < (reading.dc_kw * Decimal("0.80")):
+            return AnomalyEvent(
                     anomaly_id=self._make_id(reading.site_id, reading.inverter_id, "thermal_throttle", reading.at),
                     site_id=reading.site_id,
                     inverter_id=reading.inverter_id,
@@ -105,7 +103,7 @@ class AnomalyDetector:
                                 f"{ratio_deficit * 100:.1f}% below site median {median_ratio:.3f}."
                             ),
                             metric_value=ratio,
-                            threshold_value=median_ratio * (Decimal("1") - self.drift_tolerance),
+                            threshold_value=median_ratio * (Decimal(1) - self.drift_tolerance),
                         )
                     )
         return anomalies

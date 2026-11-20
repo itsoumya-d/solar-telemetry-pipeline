@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
@@ -28,7 +28,7 @@ def _pick(raw: dict[str, Any], names: tuple[str, ...]) -> Any:
 
 def _decimal(value: Any, field: str, *, minimum: Decimal | None = None) -> Decimal:
     if value in (None, ""):
-        return Decimal("0")
+        return Decimal(0)
     try:
         number = Decimal(str(value).replace(",", "").strip())
     except InvalidOperation as exc:
@@ -43,10 +43,10 @@ def _timestamp(value: Any) -> datetime:
         raise ValueError("timestamp is required")
     text = str(value).strip()
     try:
-        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(text)
     except ValueError as exc:
         raise ValueError(f"invalid timestamp: {value!r}") from exc
-    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
 
 
 def normalize_reading(raw: dict[str, Any]) -> Reading:
@@ -60,10 +60,10 @@ def normalize_reading(raw: dict[str, Any]) -> Reading:
         site_id=site_id,
         inverter_id=inverter_id,
         at=_timestamp(_pick(raw, ALIASES["at"])),
-        ac_kw=_decimal(_pick(raw, ALIASES["ac_kw"]), "ac_kw", minimum=Decimal("0")),
-        dc_kw=_decimal(_pick(raw, ALIASES["dc_kw"]), "dc_kw", minimum=Decimal("0")),
-        energy_kwh=_decimal(_pick(raw, ALIASES["energy_kwh"]), "energy_kwh", minimum=Decimal("0")),
-        irradiance=_decimal(_pick(raw, ALIASES["irradiance"]), "irradiance", minimum=Decimal("0")),
+        ac_kw=_decimal(_pick(raw, ALIASES["ac_kw"]), "ac_kw", minimum=Decimal(0)),
+        dc_kw=_decimal(_pick(raw, ALIASES["dc_kw"]), "dc_kw", minimum=Decimal(0)),
+        energy_kwh=_decimal(_pick(raw, ALIASES["energy_kwh"]), "energy_kwh", minimum=Decimal(0)),
+        irradiance=_decimal(_pick(raw, ALIASES["irradiance"]), "irradiance", minimum=Decimal(0)),
         temperature_c=_decimal(_pick(raw, ALIASES["temperature_c"]), "temperature_c"),
         status=str(_pick(raw, ALIASES["status"]) or "online").strip().lower(),
     )
