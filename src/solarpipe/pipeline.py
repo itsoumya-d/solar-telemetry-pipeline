@@ -5,8 +5,18 @@ from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
 from typing import Any
 
+from .anomaly import AnomalyDetector
 from .mapping import normalize_reading
-from .models import AuditEntry, BillingDiscrepancy, DeadLetter, IngestSummary, Reading, SiteAnalysis, SiteConfig
+from .models import (
+    AnomalyEvent,
+    AuditEntry,
+    BillingDiscrepancy,
+    DeadLetter,
+    IngestSummary,
+    Reading,
+    SiteAnalysis,
+    SiteConfig,
+)
 
 
 class SolarPipeline:
@@ -139,3 +149,37 @@ class SolarPipeline:
                 )
             ]
         return []
+
+    def detect_anomalies(
+        self,
+        site_id: str | None = None,
+        day: date | None = None,
+        detector: AnomalyDetector | None = None,
+    ) -> list[AnomalyEvent]:
+        active_detector = detector or AnomalyDetector()
+        readings = list(self.readings.values())
+        if site_id is not None:
+            readings = [r for r in readings if r.site_id == site_id]
+        if day is not None:
+            readings = [r for r in readings if r.at.date() == day]
+
+        events = active_detector.scan_telemetry(readings)
+        for ev in events:
+            self._record(
+                f"anomaly_{ev.severity.lower()}",
+                f"{ev.site_id}/{ev.inverter_id}",
+                f"kind={ev.kind} msg={ev.message}",
+            )
+        return events
+
+    def replay_dead_letters(
+        self,
+        remapped_records: list[dict[str, Any]] | None = None,
+    ) -> IngestSummary:
+        records_to_process = remapped_records or [dict(dl.payload) for dl in self.dead_letters]
+        summary = self.ingest(records_to_process)
+        # Clear successfully recovered dead letters if full replay
+        if remapped_records is None and summary.created > 0:
+            failed_references = {dl.reference for dl in summary.dead_letters}
+            self.dead_letters = [dl for dl in self.dead_letters if dl.reference in failed_references]
+        return summary
