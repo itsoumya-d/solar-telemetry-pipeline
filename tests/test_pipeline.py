@@ -1,4 +1,4 @@
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
 import pytest
@@ -26,7 +26,7 @@ def raw(**overrides):
 
 def pipeline_with_site():
     pipeline = SolarPipeline()
-    pipeline.register_site(SiteConfig("SOLAR-1", Decimal("100"), ("INV-1", "INV-2"), 5))
+    pipeline.register_site(SiteConfig("SOLAR-1", Decimal(100), ("INV-1", "INV-2"), 5))
     return pipeline
 
 
@@ -34,7 +34,7 @@ def test_normalize_aliases():
     reading = normalize_reading(raw())
     assert reading.site_id == "SOLAR-1"
     assert reading.inverter_id == "INV-1"
-    assert reading.at == datetime(2026, 11, 1, 10, tzinfo=timezone.utc)
+    assert reading.at == datetime(2026, 11, 1, 10, tzinfo=UTC)
     assert reading.ac_kw == Decimal("48.500")
     assert reading.irradiance == Decimal("800.000")
 
@@ -80,7 +80,7 @@ def test_analyze_detects_underperformance():
 def test_analyze_returns_empty_for_no_data():
     result = pipeline_with_site().analyze("SOLAR-1", date(2026, 11, 2))
     assert result.readings == 0
-    assert result.actual_kwh == Decimal("0")
+    assert result.actual_kwh == Decimal(0)
 
 
 def test_reconcile_billing_matches_and_flags_mismatch():

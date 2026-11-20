@@ -19,6 +19,35 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - run: python -m pip install --upgrade pip
-      - run: pip install -e ".[dev]"
-      - run: pytest
+      - name: Upgrade pip and install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+      - name: Lint with ruff
+        run: ruff check src tests
+      - name: Type check with mypy
+        run: mypy src --ignore-missing-imports
+      - name: Run test suite
+        run: pytest
+      - name: Build production package artifact
+        run: python -m build
+      - name: Run service smoke test
+        run: |
+          uvicorn solarpipe.api:app --host 127.0.0.1 --port 8000 &
+          PID=$!
+          ./scripts/smoke.sh
+          kill $PID
+      - name: Service latency SLO load test
+        run: |
+          uvicorn solarpipe.api:app --host 127.0.0.1 --port 8000 &
+          PID=$!
+          sleep 2
+          npx -y autocannon -c 10 -d 5 -m GET http://127.0.0.1:8000/health || true
+          kill $PID
+      - name: Dependency vulnerability scan
+        run: pip-audit || true
+      - name: Secret scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
