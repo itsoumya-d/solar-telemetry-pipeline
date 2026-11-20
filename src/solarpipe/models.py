@@ -81,6 +81,19 @@ class SiteAnalysis:
 
 
 @dataclass(frozen=True)
+class AnomalyEvent:
+    anomaly_id: str
+    site_id: str
+    inverter_id: str
+    at: datetime
+    severity: str
+    kind: str
+    message: str
+    metric_value: Decimal
+    threshold_value: Decimal
+
+
+@dataclass(frozen=True)
 class BillingDiscrepancy:
     kind: str
     site_id: str
